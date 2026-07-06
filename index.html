@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <!-- AIS Trade-in Dashboard v30 — By Staff split per location, Apps Script JSONP -->
 <html lang="th">
@@ -1180,7 +1181,7 @@ function syncData(manual){
       .then(res=>{
         if(res.ok&&res.rows){ingest(res.rows);afterSync();
           // load AIS Pro roster then re-render the Pro cards with full list
-          loadProRoster().then(()=>{ try{render();}catch(e){} });
+          loadProRoster().then(()=>{ try{render();}catch(e){} loadStaffRoster(); });
         }
         else{setSync('err2','✗ ดึงข้อมูลไม่ได้: '+(res.error||'unknown'));}
       })
@@ -1275,6 +1276,30 @@ function exportExcel(){
   styleHeader(ws4,8);
   XLSX.utils.book_append_sheet(wb,ws4,'ข้อมูลดิบ');
 
+  // ---- Sheet 5: พนักงานยังไม่มียอด (เทียบทะเบียนที่ลงทะเบียน) ----
+  // ชื่อพนักงานที่มี record ในช่วงนี้ (normalize)
+  const hadYield={};
+  data.forEach(r=>{ const nm=String(r.staff||'').replace(/\s+/g,' ').trim().toUpperCase(); if(nm)hadYield[nm]=true; });
+  if(STAFF_ROSTER.length){
+    const noYield=STAFF_ROSTER.filter(u=>!hadYield[u.name]);
+    const s5=[['#','พนักงาน','ประเภท','AIS Pro','สาขา','ยอด Trade','%ATR','สถานะ']];
+    // เรียงตามสาขา แล้วประเภท
+    noYield.sort((a,b)=> (mapLoc(a.branch)||a.branch||'').localeCompare(mapLoc(b.branch)||b.branch||'') || a.type.localeCompare(b.type) || a.name.localeCompare(b.name));
+    noYield.forEach((u,i)=>{
+      s5.push([i+1,u.name,u.type,(u.type==='PC'?(u.brand||''):(u.pro||'')),mapLoc(u.branch)||u.branch||'',0,'0%','ยังไม่มียอด']);
+    });
+    const ws5=XLSX.utils.aoa_to_sheet(s5);
+    ws5['!cols']=[{wch:5},{wch:24},{wch:8},{wch:12},{wch:40},{wch:10},{wch:8},{wch:14}];
+    styleHeader(ws5,8);
+    XLSX.utils.book_append_sheet(wb,ws5,'พนักงานยังไม่มียอด');
+  }else{
+    // roster ยังโหลดไม่เสร็จ -> ใส่ sheet แจ้งเตือน
+    const s5=[['หมายเหตุ'],['ยังโหลดรายชื่อพนักงานไม่สำเร็จ กรุณากด Sync แล้ว Export ใหม่อีกครั้ง']];
+    const ws5=XLSX.utils.aoa_to_sheet(s5);
+    ws5['!cols']=[{wch:60}];
+    XLSX.utils.book_append_sheet(wb,ws5,'พนักงานยังไม่มียอด');
+  }
+
   // filename
   const fn=`AIS_TradeIn_${from}_ถึง_${to}.xlsx`;
   XLSX.writeFile(wb,fn);
@@ -1346,6 +1371,7 @@ const APPS_SCRIPT_URL='https://script.google.com/macros/s/AKfycbzFH7bDJ8v7M4qIr0
 // AdminBackend (ทะเบียนพนักงาน) — ใช้ดึงรายชื่อ AIS Pro roster มา cross-ref
 const ADMIN_URL='https://script.google.com/macros/s/AKfycbxnFHnV6xFxZgl3JncF3VTf10Lmm6ewrEjADfcKRpKNIbpRzyYG0CWGIko9ZLmgNCdmDA/exec';
 let PRO_ROSTER=[]; // [{name,branch,pro}]
+let STAFF_ROSTER=[]; // [{name,branch,type,pro,brand}] พนักงานลงทะเบียนทั้งหมด (AIS+PC active)
 function loadProRoster(){
   return new Promise(res=>{
     const cb='__pro'+Date.now();
@@ -1355,6 +1381,35 @@ function loadProRoster(){
     s.src=ADMIN_URL+'?action=proList&cb='+cb;
     document.body.appendChild(s);
   });
+}
+function loadStaffRoster(){
+  return new Promise(res=>{
+    const cb='__staff'+Date.now();
+    window[cb]=function(r){
+      STAFF_ROSTER=[];
+      if(r&&r.ok&&r.data){
+        (r.data.ais||[]).filter(x=>x.active&&!x.deleted).forEach(x=>{
+          STAFF_ROSTER.push({name:String(x.name||'').replace(/\s+/g,' ').trim().toUpperCase(),
+            branch:x.branch||'',type:'AIS',pro:proNorm(pmOf(x.name)),brand:''});
+        });
+        (r.data.pc||[]).filter(x=>x.active&&!x.deleted).forEach(x=>{
+          STAFF_ROSTER.push({name:String(x.name||'').replace(/\s+/g,' ').trim().toUpperCase(),
+            branch:x.branch||'',type:'PC',pro:'',brand:x.brand||''});
+        });
+      }
+      res();
+    };
+    const s=document.createElement('script');
+    s.onerror=()=>res();
+    s.src=ADMIN_URL+'?action=list&cb='+cb;
+    document.body.appendChild(s);
+  });
+}
+// หา AIS Pro type จาก PRO_ROSTER ตามชื่อ
+function pmOf(name){
+  const n=String(name||'').replace(/\s+/g,' ').trim().toUpperCase();
+  for(const u of PRO_ROSTER){ if(String(u.name||'').replace(/\s+/g,' ').trim().toUpperCase()===n)return u.pro||''; }
+  return '';
 }
 
 // ===== ระบบ Log แยกขาด (Web App คนละตัว) — วาง URL ของ LogApp ตรงนี้ =====
