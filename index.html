@@ -1181,7 +1181,7 @@ function syncData(manual){
       .then(res=>{
         if(res.ok&&res.rows){ingest(res.rows);afterSync();
           // load AIS Pro roster then re-render the Pro cards with full list
-          loadProRoster().then(()=>{ try{render();}catch(e){} loadStaffRoster(); });
+          loadProRoster().then(()=>{ try{render();}catch(e){} loadStaffRoster(); loadMgrSup(); });
         }
         else{setSync('err2','✗ ดึงข้อมูลไม่ได้: '+(res.error||'unknown'));}
       })
@@ -1281,7 +1281,9 @@ function exportExcel(){
   const hadYield={};
   data.forEach(r=>{ const nm=String(r.staff||'').replace(/\s+/g,' ').trim().toUpperCase(); if(nm)hadYield[nm]=true; });
   if(STAFF_ROSTER.length){
-    const noYield=STAFF_ROSTER.filter(u=>!hadYield[u.name]);
+    // ตัด Mgr/Sup ออก (ให้ตรงกับ tab Staff Performance)
+    const roster=STAFF_ROSTER.filter(u=>!isMgrSupName(u.name,u.pin));
+    const noYield=roster.filter(u=>!hadYield[u.name]);
     const s5=[['#','พนักงาน','ประเภท','AIS Pro','สาขา','ยอด Trade','%ATR','สถานะ']];
     // เรียงตามสาขา แล้วประเภท
     noYield.sort((a,b)=> (mapLoc(a.branch)||a.branch||'').localeCompare(mapLoc(b.branch)||b.branch||'') || a.type.localeCompare(b.type) || a.name.localeCompare(b.name));
@@ -1390,10 +1392,12 @@ function loadStaffRoster(){
       if(r&&r.ok&&r.data){
         (r.data.ais||[]).filter(x=>x.active&&!x.deleted).forEach(x=>{
           STAFF_ROSTER.push({name:String(x.name||'').replace(/\s+/g,' ').trim().toUpperCase(),
+            pin:String(x.pin||'').trim(),
             branch:x.branch||'',type:'AIS',pro:proNorm(pmOf(x.name)),brand:''});
         });
         (r.data.pc||[]).filter(x=>x.active&&!x.deleted).forEach(x=>{
           STAFF_ROSTER.push({name:String(x.name||'').replace(/\s+/g,' ').trim().toUpperCase(),
+            pin:String(x.pin||'').trim(),
             branch:x.branch||'',type:'PC',pro:'',brand:x.brand||''});
         });
       }
@@ -1404,6 +1408,26 @@ function loadStaffRoster(){
     s.src=ADMIN_URL+'?action=list&cb='+cb;
     document.body.appendChild(s);
   });
+}
+// รายชื่อ Mgr/Sup (ตัดออกจาก report ให้ตรงกับ Staff Performance)
+let MGRSUP_ROSTER=[]; // [{name,pin}]
+function loadMgrSup(){
+  return new Promise(res=>{
+    const cb='__mgr'+Date.now();
+    window[cb]=function(r){ if(r&&r.ok)MGRSUP_ROSTER=r.data||[]; res(); };
+    const s=document.createElement('script');
+    s.onerror=()=>res();
+    s.src=ADMIN_URL+'?action=mgrSupList&cb='+cb;
+    document.body.appendChild(s);
+  });
+}
+// เช็คว่าเป็น Mgr/Sup ไหม (match ชื่อก่อน แล้ว pin)
+function isMgrSupName(name,pin){
+  const n=String(name||'').replace(/\s+/g,' ').trim().toUpperCase();
+  const p=String(pin||'').trim();
+  for(const m of MGRSUP_ROSTER){ if(String(m.name||'').replace(/\s+/g,' ').trim().toUpperCase()===n)return true; }
+  if(p){ for(const m of MGRSUP_ROSTER){ if(String(m.pin||'').trim()===p)return true; } }
+  return false;
 }
 // หา AIS Pro type จาก PRO_ROSTER ตามชื่อ
 function pmOf(name){
