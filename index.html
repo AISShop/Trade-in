@@ -213,7 +213,7 @@
         </div>
       </div>
       <div class="calgrid" id="calGrid"></div>
-      <div class="note" style="margin-top:10px">Target 15% — แต่ละวันแสดงจำนวนรายการ และ % ตอบรับ · <span style="color:#8DC63F">เขียว = ผ่าน (≥15%)</span> · <span style="color:#e5484d">แดง = ต่ำกว่า target</span></div>
+      <div class="note" style="margin-top:10px">Target 20% — แต่ละวันแสดงจำนวนรายการ และ % ตอบรับ · <span style="color:#8DC63F">เขียว = ผ่าน (≥20%)</span> · <span style="color:#e5484d">แดง = ต่ำกว่า target</span></div>
     </div>
   </div>
 
@@ -268,7 +268,7 @@
     <div style="display:flex;gap:18px;margin-bottom:8px;font-size:13px;color:var(--muted);flex-wrap:wrap">
       <span style="display:flex;align-items:center;gap:5px"><span style="width:16px;height:3px;background:#8DC63F"></span><span id="dayCurLbl">เดือนนี้</span></span>
       <span style="display:flex;align-items:center;gap:5px"><span style="width:16px;height:3px;background:#6e7681"></span><span id="dayPrevLbl">เดือนก่อน</span></span>
-      <span style="display:flex;align-items:center;gap:5px"><span style="width:16px;height:0;border-top:2px dashed #f5a623"></span>Target 15%</span>
+      <span style="display:flex;align-items:center;gap:5px"><span style="width:16px;height:0;border-top:2px dashed #f5a623"></span>Target 20%</span>
       <span id="dayDelta" style="font-weight:bold"></span>
     </div>
     <canvas id="dayChart" style="max-height:360px"></canvas>
@@ -277,13 +277,13 @@
 
   <div class="grid">
     <div class="card">
-      <h3>Monthly %ATR — Actual vs Target 15%</h3>
+      <h3>Monthly %ATR — Actual vs Target 20%</h3>
       <div style="display:flex;gap:18px;margin-bottom:8px;font-size:13px;color:var(--muted);flex-wrap:wrap">
         <span style="display:flex;align-items:center;gap:5px"><span style="width:16px;height:3px;background:#8DC63F"></span>%ATR Actual</span>
-        <span style="display:flex;align-items:center;gap:5px"><span style="width:16px;height:0;border-top:2px dashed #f5a623"></span>Target 15%</span>
+        <span style="display:flex;align-items:center;gap:5px"><span style="width:16px;height:0;border-top:2px dashed #f5a623"></span>Target 20%</span>
       </div>
       <canvas id="monthChart"></canvas>
-      <div class="note">แสดงทุกเดือนเสมอ (ไม่ขึ้นกับ period ที่เลือก) · เส้นเขียว = %ATR จริง · เส้นประส้ม = เป้า 15% · ตัวเลขบนจุด = %ATR และ (ตอบรับ/ทั้งหมด)</div>
+      <div class="note">แสดงทุกเดือนเสมอ (ไม่ขึ้นกับ period ที่เลือก) · เส้นเขียว = %ATR จริง · เส้นประส้ม = เป้า 20% · ตัวเลขบนจุด = %ATR และ (ตอบรับ/ทั้งหมด)</div>
     </div>
     <div class="card">
       <h3>Trade-in Acceptance</h3>
@@ -623,7 +623,7 @@ function drawDay(){
         datalabels:{display:ctx2=>cur.pct[ctx2.dataIndex]!=null,anchor:'end',align:'top',offset:5,
           color:'#8DC63F',font:{size:11,weight:'bold'},
           formatter:v=>v==null?'':v.toFixed(0)+'%'}},
-      {label:'Target 15%',data:target,borderColor:'#f5a623',borderWidth:2,borderDash:[7,5],fill:false,
+      {label:'Target 20%',data:target,borderColor:'#f5a623',borderWidth:2,borderDash:[7,5],fill:false,
         tension:0,pointRadius:0,pointHoverRadius:0,order:2,datalabels:{display:false}}
     ]},
     options:{responsive:true,maintainAspectRatio:false,layout:{padding:{top:24,right:10}},
@@ -631,7 +631,7 @@ function drawDay(){
       plugins:{legend:{display:false},
         tooltip:{callbacks:{
           title:items=>`วันที่ ${items[0].label}`,
-          label:c=>{if(c.dataset.label==='Target 15%')return ' Target 15%';
+          label:c=>{if(c.dataset.label==='Target 20%')return ' Target 20%';
             const v=c.raw;if(v==null)return ` ${c.dataset.label}: ไม่มีข้อมูล`;
             if(c.dataset.label==='เดือนนี้')return ` เดือนนี้: ${v.toFixed(1)}% (${cur.acc[c.dataIndex]}/${cur.tot[c.dataIndex]})`;
             return ` ${c.dataset.label}: ${v.toFixed(1)}%`;}}}},
@@ -668,15 +668,15 @@ function drawMonth(data){
           font:{size:14,weight:'bold'},
           formatter:(v,c)=>`${v.toFixed(1)}%\n(${accepted[c.dataIndex]}/${totals[c.dataIndex]})`}
       },
-      { // Target 15%
-        label:'Target 15%',data:target,
+      { // Target 20%
+        label:'Target 20%',data:target,
         borderColor:'#f5a623',borderWidth:2,borderDash:[7,5],fill:false,tension:0,
         pointRadius:0,pointHoverRadius:0,order:1,datalabels:{display:false}
       }
     ]},
     options:{layout:{padding:{top:40,right:14,left:6}},
       plugins:{legend:{display:false},
-        tooltip:{callbacks:{label:c=>c.datasetIndex===1?` Target 15%`:` %ATR ${pct[c.dataIndex].toFixed(1)}% (ตอบรับ ${accepted[c.dataIndex]} จาก ${totals[c.dataIndex]})`}}},
+        tooltip:{callbacks:{label:c=>c.datasetIndex===1?` Target 20%`:` %ATR ${pct[c.dataIndex].toFixed(1)}% (ตอบรับ ${accepted[c.dataIndex]} จาก ${totals[c.dataIndex]})`}}},
       scales:{x:{ticks:{color:'#e6edf3',font:{size:14}},grid:{display:false}},
         y:{beginAtZero:true,max:Math.ceil(maxPct/5)*5,ticks:{color:'#8b949e',font:{size:13},stepSize:5,callback:v=>Math.round(v)+'%'},grid:{color:'#21262d'}}}}});
 }
@@ -746,10 +746,10 @@ function drawByLoc(data){
     ordered.map((name,i)=>{
       const x=byName[name];
       if(x){
-        // ตัวเลข %ATR: เขียวถ้าผ่านเป้า 15%, แดงถ้าไม่ผ่าน (เกณฑ์สัมบูรณ์)
+        // ตัวเลข %ATR: เขียวถ้าผ่านเป้า 20%, แดงถ้าไม่ผ่าน (เกณฑ์สัมบูรณ์)
         const rc=x.rate>=15?'#8DC63F':'#e5484d';
         // แถบ highlight: เทียบกับ"ค่าเฉลี่ยรวม"ของช่วงเวลานี้ (relative) — เตือนสาขาที่ต่ำกว่าเพื่อน
-        // gap = ค่าเฉลี่ย - สาขา ; ยิ่งต่ำกว่าเฉลี่ยมาก ยิ่งเข้ม (แม้ตัวเลขจะเกิน 15%)
+        // gap = ค่าเฉลี่ย - สาขา ; ยิ่งต่ำกว่าเฉลี่ยมาก ยิ่งเข้ม (แม้ตัวเลขจะเกิน 20%)
         const gap=avgAll-x.rate;
         let rowStyle='', flag='';
         if(gap>=avgAll*0.5 && gap>0){ // ต่ำกว่าเฉลี่ยเกินครึ่ง = วิกฤต
@@ -1098,7 +1098,7 @@ function openCal(){
   renderCal();
 }
 function closeCal(){$('calModal').classList.remove('show');}
-function calColor(p){ // target 15%: ผ่าน=เขียว, ไม่ผ่าน=แดง
+function calColor(p){ // target 20%: ผ่าน=เขียว, ไม่ผ่าน=แดง
   return p>=15 ? '#8DC63F' : '#e5484d';
 }
 function renderCal(){
