@@ -1,4 +1,5 @@
 
+
 <!DOCTYPE html>
 <!-- AIS Trade-in Dashboard v30 — By Staff split per location, Apps Script JSONP -->
 <html lang="th">
@@ -1171,21 +1172,46 @@ function jsonp(url,timeoutMs){
     document.body.appendChild(s);
   });
 }
+// ===== IndexedDB cache — freeze RAW ในเครื่อง (เปิดใหม่เห็นทันที ไม่ error) =====
+var IDB=null;
+function idbOpen(){
+  return new Promise(function(res){
+    if(IDB){res(IDB);return;}
+    try{
+      var rq=indexedDB.open('ais_tradein',1);
+      rq.onupgradeneeded=function(e){ var db=e.target.result; if(!db.objectStoreNames.contains('kv'))db.createObjectStore('kv'); };
+      rq.onsuccess=function(e){ IDB=e.target.result; res(IDB); };
+      rq.onerror=function(){ res(null); };
+    }catch(e){ res(null); }
+  });
+}
+function idbSet(key,val){
+  return idbOpen().then(function(db){ if(!db)return; return new Promise(function(res){
+    try{ var tx=db.transaction('kv','readwrite'); tx.objectStore('kv').put(val,key); tx.oncomplete=function(){res();}; tx.onerror=function(){res();}; }catch(e){res();}
+  });});
+}
+function idbGet(key){
+  return idbOpen().then(function(db){ if(!db)return null; return new Promise(function(res){
+    try{ var tx=db.transaction('kv','readonly'); var rq=tx.objectStore('kv').get(key); rq.onsuccess=function(){res(rq.result||null);}; rq.onerror=function(){res(null);}; }catch(e){res(null);}
+  });});
+}
+
 function syncData(manual){
   setSync('loading','⏳ กำลังซิงค์...');
   if(manual)logUse('SYNC','manual refresh');
   if(APPS_SCRIPT_URL){
     // โหมด Apps Script — ดึงข้อมูลผ่าน JSONP (เลี่ยง CORS)
     const tok=encodeURIComponent(AUTH_TOKEN||sessionStorage.getItem('ais_token')||'');
-    jsonp(APPS_SCRIPT_URL+'?action=data&token='+tok)
+    jsonp(APPS_SCRIPT_URL+'?action=data&token='+tok, 60000)
       .then(res=>{
-        if(res.ok&&res.rows){ingest(res.rows);afterSync();
-          // load AIS Pro roster then re-render the Pro cards with full list
+        if(res.ok&&res.rows){
+          idbSet('raw_rows',res.rows);        // freeze ข้อมูลล่าสุดในเครื่อง
+          ingest(res.rows);afterSync();
           loadProRoster().then(()=>{ try{render();}catch(e){} loadStaffRoster(); loadMgrSup(); });
         }
-        else{setSync('err2','✗ ดึงข้อมูลไม่ได้: '+(res.error||'unknown'));}
+        else{ syncFallback('✗ ดึงข้อมูลไม่ได้: '+(res.error||'unknown')); }
       })
-      .catch(e=>{setSync('err2','✗ เชื่อมต่อ server ไม่ได้');console.error('[sync error]',e);});
+      .catch(e=>{ console.error('[sync error]',e); syncFallback('✗ เชื่อมต่อ server ไม่ได้'); });
     return;
   }
   // โหมดเดิม — CSV ฝังในไฟล์
@@ -1193,7 +1219,20 @@ function syncData(manual){
   if(!url){demo();return;}
   Papa.parse(url,{download:true,header:true,skipEmptyLines:true,
     complete:r=>{ingest(r.data);afterSync();},
-    error:e=>{setSync('err2','✗ ซิงค์ไม่สำเร็จ — แสดง Demo ชั่วคราว');demo();}});
+    error:e=>{ syncFallback('✗ ซิงค์ไม่สำเร็จ'); }});
+}
+// ถ้า sync ล้ม -> ลองใช้ข้อมูลที่ freeze ไว้ในเครื่อง (ไม่ให้จอว่าง/error)
+function syncFallback(msg){
+  idbGet('raw_rows').then(function(rows){
+    if(rows&&rows.length){
+      ingest(rows);
+      try{render();}catch(e){}
+      setSync('ok', '⚠ ใช้ข้อมูลที่บันทึกไว้ (sync ใหม่ไม่สำเร็จ) — กดซิงค์อีกครั้ง');
+      loadProRoster().then(()=>{ try{render();}catch(e){} loadStaffRoster(); loadMgrSup(); }).catch(function(){});
+    }else{
+      setSync('err2', msg);
+    }
+  }).catch(function(){ setSync('err2', msg); });
 }
 $('load').onclick=()=>syncData(true);
 $('calBtn').onclick=openCal;
@@ -1521,7 +1560,11 @@ $('logout').onclick=()=>{sessionStorage.removeItem('ais_auth');sessionStorage.re
 
 let autoTimer=null;
 function startApp(){
-  syncData(false);
+  // แสดงข้อมูลที่ freeze ไว้ก่อน (เห็นทันที ไม่ต้องรอ server) แล้ว sync พื้นหลัง
+  idbGet('raw_rows').then(function(rows){
+    if(rows&&rows.length){ try{ ingest(rows); render(); setSync('ok','✓ ข้อมูลบันทึกไว้ · กำลังซิงค์…'); }catch(e){} }
+    syncData(false);
+  }).catch(function(){ syncData(false); });
   // Auto Sync ทุก 5 นาที
   if(autoTimer)clearInterval(autoTimer);
   autoTimer=setInterval(()=>syncData(false),5*60*1000);
